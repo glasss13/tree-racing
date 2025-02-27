@@ -1,7 +1,8 @@
-.PHONY: install  build test lint-check format-check format clean
+.PHONY: all install  build test lint-check format-check format clean
 
 SRC_FILES := $(shell find src tst -name '*.cpp' -o -name '*.hpp')
 
+all: build
 
 install:
 	conan install . --build=missing
