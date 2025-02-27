@@ -1,8 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <fmt/core.h>
 #include <iostream>
-#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -89,62 +89,66 @@ inline float split_entropy(const Dataset &dataset, int attribute)
     return split_entropy;
 }
 
-struct InterNode;
-struct LeafNode;
-
-using Node = std::variant<InterNode, LeafNode>;
-
-struct InterNode
+class Node
 {
-    int attribute;
+    int m_label_or_attr;
+    std::vector<Node> m_children;
+    int m_inter_label;
 
-    std::unordered_map<int, Node> children;
-};
+    Node(int label) : m_label_or_attr(label) {}
 
-struct LeafNode
-{
-    int label;
+    Node(int attr, std::vector<Node> children, int inter_label) : m_label_or_attr(attr), m_children(std::move(children)), m_inter_label(inter_label) {}
+
+  public:
+    bool is_leaf() const { return m_children.empty(); }
+
+    std::vector<Node> &children() { return m_children; }
+
+    std::vector<Node> const &children() const { return m_children; }
+
+    int split_attribute() const { return m_label_or_attr; }
+
+    int leaf_label() const { return m_label_or_attr; }
+
+    int inter_label() const { return m_inter_label; }
+
+    void set_inter_label(int l) { m_inter_label = l; }
+
+    static Node make_leaf(int label) { return Node{label}; }
+
+    static Node make_inter(int attribute, std::vector<Node> children) { return Node{attribute, std::move(children), -1}; }
 };
 
 inline void print_tree(const Node &node, int depth = 0)
 {
     auto indent = std::string(depth * 2, ' ');
-    std::visit(
-        [&](const auto &n)
+
+    if (node.is_leaf())
+    {
+        std::cout << indent << "[Leaf: label=" << node.leaf_label() << "]\n";
+    }
+    else
+    {
+        std::cout << indent << "[Node: attribte=" << node.split_attribute() << "]\n";
+        for (const auto &child : node.children())
         {
-            using T = std::decay_t<decltype(n)>;
-            if constexpr (std::is_same_v<T, InterNode>)
-            {
-                std::cout << indent << "[Node: attribute=" << n.attribute << "]\n";
-                for (const auto &[_, child] : n.children)
-                {
-                    print_tree(child, depth + 1);
-                }
-            }
-            else
-            {
-                std::cout << indent << "[Leaf: label=" << n.label << "]\n";
-            }
-        },
-        node);
+            print_tree(child, depth + 1);
+        }
+    }
 }
 
 inline int tree_predict(const std::vector<int> &obs, const Node &node)
 {
-    return std::visit(
-        [&](const auto &n)
-        {
-            using T = std::decay_t<decltype(n)>;
-            if constexpr (std::is_same_v<T, InterNode>)
-            {
-                return tree_predict(obs, n.children.at(obs[n.attribute]));
-            }
-            else
-            {
-                return n.label;
-            }
-        },
-        node);
+    if (node.is_leaf())
+    {
+        return node.leaf_label();
+    }
+    else
+    {
+        int split_val = obs[node.split_attribute()];
+        auto child = std::ranges::find_if(node.children(), [&](const Node &n) { return n.inter_label() == split_val; });
+        return tree_predict(obs, *child);
+    }
 }
 
 inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int parent_mode, int min_samples_split)
@@ -155,14 +159,14 @@ inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes,
 
     if (rows == 0)
     {
-        return LeafNode{parent_mode};
+        return Node::make_leaf(parent_mode);
     }
 
     auto [mode_label, mode_count] = mode(target_data);
 
     if (mode_count == rows || used_attributes.size() == num_attributes || rows <= min_samples_split)
     {
-        return LeafNode{mode_label};
+        return Node::make_leaf(mode_label);
     }
 
     float best_split_entropy = std::numeric_limits<float>::max();
@@ -185,13 +189,15 @@ inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes,
 
     const auto label_splits = split_dataset(dataset, best_split_attribute);
 
-    std::unordered_map<int, Node> children;
+    std::vector<Node> children;
     for (const auto &[label, split_ds] : label_splits)
     {
-        children[label] = id3(split_ds, used_attributes, mode_label, min_samples_split);
+        auto n = id3(split_ds, used_attributes, mode_label, min_samples_split);
+        n.set_inter_label(label);
+        children.push_back(std::move(n));
     }
 
-    return InterNode{best_split_attribute, std::move(children)};
+    return Node::make_inter(best_split_attribute, std::move(children));
 }
 
 inline Node build_tree(const Dataset &dataset, int min_samples_split = 2)
