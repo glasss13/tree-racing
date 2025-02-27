@@ -74,15 +74,30 @@ inline float split_entropy(const Dataset &dataset, int attribute)
 {
     int rows = dataset[0].size();
 
-    auto label_splits = split_dataset(dataset, attribute);
+    const auto &attribute_col = dataset[attribute];
+    const auto &target_col = dataset.back();
+
+    std::unordered_map<int, std::unordered_map<int, int>> split_counts;
+    std::unordered_map<int, int> split_totals;
+    for (int i = 0; i < rows; ++i)
+    {
+        ++split_counts[attribute_col[i]][target_col[i]];
+        ++split_totals[attribute_col[i]];
+    }
 
     float split_entropy = 0;
 
-    for (const auto &[label, ds] : label_splits)
+    for (const auto &[split, counts] : split_counts)
     {
-        float entropy = compute_entropy(ds[4]);
+        auto tot = split_totals[split];
+        float entropy = 0;
+        for (auto [_, cnt] : counts)
+        {
+            float prop = static_cast<float>(cnt) / tot;
+            entropy += -prop * log(prop);
+        }
 
-        float prop = static_cast<float>(ds[0].size()) / rows;
+        float prop = static_cast<float>(tot) / rows;
         split_entropy += prop * entropy;
     }
 
