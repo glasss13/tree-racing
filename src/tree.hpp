@@ -147,11 +147,16 @@ inline int tree_predict(const std::vector<int> &obs, const Node &node)
     {
         int split_val = obs[node.split_attribute()];
         auto child = std::ranges::find_if(node.children(), [&](const Node &n) { return n.inter_label() == split_val; });
+        if (child == node.children().end()) [[unlikely]]
+        {
+            return tree_predict(obs, node.children().front());
+        }
+
         return tree_predict(obs, *child);
     }
 }
 
-inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int parent_mode, int min_samples_split)
+inline Node id3(const Dataset &dataset, std::bitset<64> used_attributes, int parent_mode, int min_samples_split)
 {
     const int rows = dataset[0].size();
     const int num_attributes = dataset.size() - 1;
@@ -174,7 +179,7 @@ inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes,
 
     for (int col = 0; col < num_attributes; ++col)
     {
-        if (used_attributes.contains(col))
+        if (used_attributes.test(col))
             continue;
 
         auto entropy = split_entropy(dataset, col);
@@ -185,7 +190,7 @@ inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes,
         }
     }
 
-    used_attributes.insert(best_split_attribute);
+    used_attributes.set(best_split_attribute);
 
     const auto label_splits = split_dataset(dataset, best_split_attribute);
 
@@ -204,5 +209,5 @@ inline Node build_tree(const Dataset &dataset, int min_samples_split = 2)
 {
     auto [mode_label, _] = mode(dataset.back());
 
-    return id3(dataset, std::unordered_set<int>{}, mode_label, min_samples_split);
+    return id3(dataset, 0, mode_label, min_samples_split);
 }
