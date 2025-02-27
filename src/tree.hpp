@@ -7,9 +7,9 @@
 #include <unordered_set>
 #include <vector>
 
-using Dataset = std::array<std::vector<int>, 5>;
+using Dataset = std::vector<std::vector<int>>;
 
-std::pair<int, int> mode(const std::vector<int> &data)
+inline std::pair<int, int> mode(const std::vector<int> &data)
 {
     std::unordered_map<int, int> counts;
 
@@ -29,7 +29,7 @@ std::pair<int, int> mode(const std::vector<int> &data)
     return {ret, highest_count};
 }
 
-float compute_entropy(const std::vector<int> &data)
+inline float compute_entropy(const std::vector<int> &data)
 {
     std::unordered_map<int, int> counts;
 
@@ -48,24 +48,29 @@ float compute_entropy(const std::vector<int> &data)
     return ret;
 }
 
-std::unordered_map<int, Dataset> split_dataset(const Dataset &dataset, int attribute)
+inline std::unordered_map<int, Dataset> split_dataset(const Dataset &dataset, int attribute)
 {
     int rows = dataset[0].size();
 
     std::unordered_map<int, Dataset> label_splits;
     for (int row = 0; row < rows; ++row)
     {
-        auto &ds = label_splits[dataset[attribute][row]];
+        auto it = label_splits.find(dataset[attribute][row]);
+        if (it == label_splits.end())
+        {
+            it = label_splits.insert({dataset[attribute][row], Dataset(dataset.size())}).first;
+        }
+
         for (int col = 0; col < dataset.size(); ++col)
         {
-            ds[col].push_back(dataset[col][row]);
+            it->second[col].push_back(dataset[col][row]);
         }
     }
 
     return label_splits;
 }
 
-float split_entropy(const Dataset &dataset, int attribute)
+inline float split_entropy(const Dataset &dataset, int attribute)
 {
     int rows = dataset[0].size();
 
@@ -101,7 +106,7 @@ struct LeafNode
     int label;
 };
 
-void print_tree(const Node &node, int depth = 0)
+inline void print_tree(const Node &node, int depth = 0)
 {
     auto indent = std::string(depth * 2, ' ');
     std::visit(
@@ -124,7 +129,7 @@ void print_tree(const Node &node, int depth = 0)
         node);
 }
 
-int tree_predict(const std::vector<int> &obs, const Node &node)
+inline int tree_predict(const std::vector<int> &obs, const Node &node)
 {
     return std::visit(
         [&](const auto &n)
@@ -142,7 +147,7 @@ int tree_predict(const std::vector<int> &obs, const Node &node)
         node);
 }
 
-Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int parent_mode, int min_samples_split)
+inline Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int parent_mode, int min_samples_split)
 {
     const int rows = dataset[0].size();
     const int num_attributes = dataset.size() - 1;
@@ -155,12 +160,7 @@ Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int pa
 
     auto [mode_label, mode_count] = mode(target_data);
 
-    if (mode_count == rows || used_attributes.size() == num_attributes)
-    {
-        return LeafNode{mode_label};
-    }
-
-    if (rows <= min_samples_split)
+    if (mode_count == rows || used_attributes.size() == num_attributes || rows <= min_samples_split)
     {
         return LeafNode{mode_label};
     }
@@ -194,7 +194,7 @@ Node id3(const Dataset &dataset, std::unordered_set<int> used_attributes, int pa
     return InterNode{best_split_attribute, std::move(children)};
 }
 
-Node build_tree(const Dataset &dataset, int min_samples_split = 2)
+inline Node build_tree(const Dataset &dataset, int min_samples_split = 2)
 {
     auto [mode_label, _] = mode(dataset.back());
 

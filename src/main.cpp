@@ -8,7 +8,7 @@ int main()
     io::CSVReader<cols> in("datasets/tennis.csv");
     int outlook, temp, humidity, wind, play;
 
-    Dataset dataset;
+    Dataset dataset(5);
     int rows = 0;
 
     while (in.read_row(outlook, temp, humidity, wind, play))

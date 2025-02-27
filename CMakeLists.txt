@@ -15,22 +15,26 @@ enable_testing()
 
 file(GLOB MAIN src/main.cpp)
 file(GLOB_RECURSE TESTS tst/*.cpp)
+file(GLOB_RECURSE BENCHMARKS bench/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.hpp)
 
 find_package(fmt REQUIRED)
+find_package(benchmark REQUIRED)
 
 SET(PACKAGES fmt::fmt)
 
 add_executable(tree_exe ${MAIN} ${HEADERS})
 add_executable(tree_tests ${TESTS} ${HEADERS})
+add_executable(tree_benchmark ${BENCHMARKS} ${HEADERS})
 add_executable(tree_debug ${MAIN} ${HEADERS})
 
 target_compile_options(tree_exe PRIVATE ${RELEASE_FLAGS})
 target_compile_options(tree_tests PRIVATE ${DEBUG_FLAGS})
+target_compile_options(tree_benchmark PRIVATE ${RELEASE_FLAGS})
 target_compile_options(tree_debug PRIVATE ${DEBUG_FLAGS})
 
 
-SET(TARGETS tree_exe tree_tests tree_debug)
+SET(TARGETS tree_exe tree_tests tree_benchmark tree_debug)
 
 foreach (target ${TARGETS})
     target_include_directories(${target} PUBLIC src)
@@ -39,3 +43,4 @@ endforeach()
 
 # Gtest
 target_link_libraries(tree_tests PRIVATE gtest::gtest)
+target_link_libraries(tree_benchmark PRIVATE benchmark::benchmark_main)

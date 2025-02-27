@@ -9,6 +9,7 @@ class TemplateRecipe(ConanFile):
     def requirements(self):
         self.requires("gtest/1.15.0")
         self.requires("fmt/11.0.2")
+        self.requires("benchmark/1.9.0")
 
     def layout(self):
         cmake_layout(self)

@@ -15,6 +15,9 @@ build: install
 test: build
 	cd build && ./tree_tests
 
+benchmark: build
+	cd build && ./tree_benchmark
+
 lint-check:
 	clang-tidy $(SRC_FILES) -p build
 
