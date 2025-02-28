@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <numeric>
 #include <vector>
 
 struct InnerDataset
@@ -10,8 +11,10 @@ struct InnerDataset
     std::vector<std::vector<int>> m_row_data;
     std::vector<std::vector<int>> m_col_data;
     std::vector<int> m_target_data;
+    std::vector<int> m_count_scratch_buf;
 
-    InnerDataset(std::vector<std::vector<int>> row_data, std::vector<int> target) : m_row_data(std::move(row_data)), m_target_data(std::move(target))
+    InnerDataset(std::vector<std::vector<int>> row_data, std::vector<int> target)
+        : m_row_data(std::move(row_data)), m_target_data(std::move(target)), m_count_scratch_buf(25)
     {
         m_col_data.resize(m_row_data[0].size(), std::vector<int>(m_row_data.size()));
 
@@ -25,7 +28,7 @@ struct InnerDataset
     }
 
     InnerDataset(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target)
-        : m_row_data(std::move(row_data)), m_col_data(std::move(col_data)), m_target_data(std::move(target))
+        : m_row_data(std::move(row_data)), m_col_data(std::move(col_data)), m_target_data(std::move(target)), m_count_scratch_buf(25)
     {
     }
 };
@@ -36,15 +39,9 @@ class Dataset
     std::vector<int> m_sorted_idxs;
 
   public:
-    Dataset(std::shared_ptr<InnerDataset> inner) : m_inner(inner)
+    explicit Dataset(std::shared_ptr<InnerDataset> inner) : m_inner(std::move(inner)), m_sorted_idxs(m_inner->m_row_data.size())
     {
-        auto nrows = inner->m_row_data.size();
-
-        m_sorted_idxs.resize(nrows, 0);
-        for (int i = 0; i < nrows; ++i)
-        {
-            m_sorted_idxs[i] = i;
-        }
+        std::iota(m_sorted_idxs.begin(), m_sorted_idxs.end(), 0);
     }
 
     Dataset(std::shared_ptr<InnerDataset> inner, int nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
@@ -54,6 +51,14 @@ class Dataset
         const auto &col_data = m_inner->m_col_data[col];
         std::ranges::sort(m_sorted_idxs, [&](int l, int r) { return col_data[l] < col_data[r]; });
     }
+
+    void sort_by_target()
+    {
+        const auto &target_data = m_inner->m_target_data;
+        std::ranges::sort(m_sorted_idxs, [&](int l, int r) { return target_data[l] < target_data[r]; });
+    }
+
+    std::vector<int> &count_scratch_buf() { return m_inner->m_count_scratch_buf; }
 
     const std::vector<int> &get_row(int row) const { return m_inner->m_row_data[row]; }
 
@@ -96,7 +101,6 @@ class Dataset
     }
 
     Dataset copy_from(size_t start, size_t end) const
-
     {
         const auto count = end - start;
 
@@ -109,9 +113,7 @@ class Dataset
     size_t find_next_label(int col, int label) const
     {
         const auto &col_data = m_inner->m_col_data[col];
-
         auto it = std::ranges::upper_bound(m_sorted_idxs, label, std::less<>(), [&](int idx) { return col_data[idx]; });
-
         return std::distance(m_sorted_idxs.begin(), it);
     }
 
@@ -172,5 +174,5 @@ class Dataset
     };
 
   public:
-    SplitDatasetView split_iterator(int attribute) { return SplitDatasetView(*this, attribute); }
+    SplitDatasetView split_iterator(int attribute) const { return SplitDatasetView(*this, attribute); }
 };

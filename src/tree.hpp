@@ -96,42 +96,34 @@ inline int tree_predict(const std::vector<int> &obs, const Node &node)
     }
 }
 
-inline std::vector<Dataset> split_dataset(const Dataset &ds, int attribute)
-{
-    std::vector<Dataset> out;
-
-    size_t idx = 0;
-
-    while (idx < ds.num_rows())
-    {
-        auto next_label_idx = ds.find_next_label(attribute, ds.get_col_sorted(attribute, idx));
-
-        out.push_back(ds.copy_from(idx, next_label_idx));
-        idx = next_label_idx;
-    }
-
-    return out;
-}
-
-// inline float split_entropy2(const Dataset &ds, int attribute) {
-//     split_
+// inline std::vector<Dataset> split_dataset(const Dataset &ds, int attribute)
+// {
+//     std::vector<Dataset> out;
 //
+//     size_t idx = 0;
+//
+//     while (idx < ds.num_rows())
+//     {
+//         auto next_label_idx = ds.find_next_label(attribute, ds.get_col_sorted(attribute, idx));
+//
+//         out.push_back(ds.copy_from(idx, next_label_idx));
+//         idx = next_label_idx;
+//     }
+//
+//     return out;
 // }
 
-inline float split_entropy(const Dataset &ds, int attribute)
+inline float split_entropy(Dataset &ds, int attribute)
 {
-
     float total_entropy = 0;
 
-    std::map<int, int> cnts;
-    int split_start = 0;
-    int prev_label = ds.get_col_sorted(attribute, 0);
-
-    const auto compute_entropy = [&ds](int total, std::map<int, int> &counts)
+    const auto compute_entropy = [&ds](int total, const std::vector<int> &counts)
     {
         float entropy = 0;
-        for (auto [_, cnt] : counts)
+        for (auto cnt : counts)
         {
+            if (cnt == 0)
+                continue;
             float prop = static_cast<float>(cnt) / total;
             entropy -= prop * log(prop);
         }
@@ -139,6 +131,10 @@ inline float split_entropy(const Dataset &ds, int attribute)
         return group_weight * entropy;
     };
 
+    auto &cnts = ds.count_scratch_buf();
+
+    int split_start = 0;
+    int prev_label = ds.get_col_sorted(attribute, 0);
     int row = 0;
     while (row < ds.num_rows())
     {
@@ -146,7 +142,12 @@ inline float split_entropy(const Dataset &ds, int attribute)
 
         if (cur_label == prev_label)
         {
-            ++cnts[ds.get_target_sorted(row)];
+            const auto label = ds.get_target_sorted(row);
+            if (label >= cnts.size()) [[unlikely]]
+            {
+                cnts.resize(std::max(cnts.size() * 2, static_cast<size_t>(label + 1)), 0);
+            }
+            ++cnts[label];
             ++row;
         }
         else
@@ -155,13 +156,14 @@ inline float split_entropy(const Dataset &ds, int attribute)
 
             split_start = row;
             prev_label = cur_label;
-            cnts.clear();
+            std::memset(cnts.data(), 0, cnts.size());
         }
     }
 
     if (row > split_start)
     {
         total_entropy += compute_entropy(row - split_start, cnts);
+        std::memset(cnts.data(), 0, cnts.size());
     }
 
     return total_entropy;
@@ -209,10 +211,8 @@ inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mod
 
     dataset.sort_by(best_split_attribute);
 
-    auto label_splits = split_dataset(dataset, best_split_attribute);
-
     std::vector<Node> children;
-    for (auto &split_ds : label_splits)
+    for (const auto split_ds : dataset.split_iterator(best_split_attribute))
     {
         auto label = split_ds.get_col_sorted(best_split_attribute, 0);
         auto n = id3(split_ds, used_attributes, mode_label, min_samples_split);
