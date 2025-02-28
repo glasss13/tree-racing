@@ -19,9 +19,9 @@ TEST(TennisTest, AllInSample)
         target_data.push_back(play);
     }
 
-    Dataset2 dataset(row_data, target_data);
+    Dataset dataset(row_data, target_data);
 
-    const auto tree = build_tree2(dataset);
+    const auto tree = build_tree(dataset);
 
     for (int i = 0; i < dataset.num_rows(); ++i)
     {

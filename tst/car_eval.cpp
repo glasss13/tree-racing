@@ -4,38 +4,36 @@
 
 TEST(CarTest, AllInSample)
 {
-    // car_columns = ["Buying", "Maint", "Doors",
-    //                "Persons", "Lug_boot", "Safety", "Class"]
     constexpr int cols = 7;
 
     io::CSVReader<cols> in("../datasets/car_eval.csv");
     int buying, maint, doors, person, lug_boot, safety, class_;
 
-    Dataset dataset(cols);
-    int rows = 0;
+    std::vector<std::vector<int>> row_data;
+    std::vector<int> target_data;
 
     while (in.read_row(buying, maint, doors, person, lug_boot, safety, class_))
     {
-        dataset[0].push_back(buying);
-        dataset[1].push_back(maint);
-        dataset[2].push_back(doors);
-        dataset[3].push_back(person);
-        dataset[4].push_back(lug_boot);
-        dataset[5].push_back(safety);
-        dataset[6].push_back(class_);
-
-        ++rows;
+        row_data.push_back({buying, maint, doors, person, lug_boot, safety});
+        target_data.push_back(class_);
     }
+
+    Dataset dataset(row_data, target_data);
 
     const auto tree = build_tree(dataset);
 
-    for (int i = 0; i < rows; ++i)
+    for (int i = 0; i < dataset.num_rows(); ++i)
     {
-        std::vector<int> obs;
-        for (int attribute = 0; attribute < cols - 1; ++attribute)
-        {
-            obs.push_back(dataset[attribute][i]);
-        }
-        EXPECT_EQ(tree_predict(obs, tree), dataset.back()[i]);
+        EXPECT_EQ(tree_predict(dataset.row_data[i], tree), dataset.target_data[i]);
     }
+
+    // for (int i = 0; i < rows; ++i)
+    // {
+    //     std::vector<int> obs;
+    //     for (int attribute = 0; attribute < cols - 1; ++attribute)
+    //     {
+    //         obs.push_back(dataset[attribute][i]);
+    //     }
+    //     EXPECT_EQ(tree_predict(obs, tree), dataset.back()[i]);
+    // }
 }
