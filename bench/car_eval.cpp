@@ -2,10 +2,12 @@
 #include "tree.hpp"
 #include <benchmark/benchmark.h>
 
+constexpr const char *file = "/Users/glass/source/tree-racing/datasets/car_eval.csv";
+
 static void BM_BuildTree(benchmark::State &state)
 {
     constexpr int cols = 7;
-    io::CSVReader<cols> in("../datasets/car_eval.csv");
+    io::CSVReader<cols> in(file);
     int buying, maint, doors, person, lug_boot, safety, class_;
 
     Dataset dataset(cols);
@@ -35,7 +37,7 @@ BENCHMARK(BM_BuildTree);
 static void BM_TreePredict(benchmark::State &state)
 {
     constexpr int cols = 7;
-    io::CSVReader<cols> in("../datasets/car_eval.csv");
+    io::CSVReader<cols> in(file);
     int buying, maint, doors, person, lug_boot, safety, class_;
 
     Dataset dataset(cols);
@@ -71,5 +73,62 @@ static void BM_TreePredict(benchmark::State &state)
 }
 
 BENCHMARK(BM_TreePredict);
+
+static void BM_BuildTree2(benchmark::State &state)
+{
+    constexpr int cols = 7;
+    io::CSVReader<cols> in(file);
+    int buying, maint, doors, person, lug_boot, safety, class_;
+
+    std::vector<std::vector<int>> row_data;
+    std::vector<int> target_data;
+
+    while (in.read_row(buying, maint, doors, person, lug_boot, safety, class_))
+    {
+        row_data.push_back({buying, maint, doors, person, lug_boot, safety});
+        target_data.push_back(class_);
+    }
+
+    Dataset2 dataset(row_data, target_data);
+
+    for (auto _ : state)
+    {
+        auto tree = build_tree2(dataset);
+        benchmark::DoNotOptimize(tree);
+    }
+}
+
+BENCHMARK(BM_BuildTree2);
+
+static void BM_TreePredict2(benchmark::State &state)
+{
+    constexpr int cols = 7;
+    io::CSVReader<cols> in(file);
+    int buying, maint, doors, person, lug_boot, safety, class_;
+
+    std::vector<std::vector<int>> row_data;
+    std::vector<int> target_data;
+
+    while (in.read_row(buying, maint, doors, person, lug_boot, safety, class_))
+    {
+        row_data.push_back({buying, maint, doors, person, lug_boot, safety});
+        target_data.push_back(class_);
+    }
+
+    Dataset2 dataset(row_data, target_data);
+
+    auto tree = build_tree2(dataset);
+
+    for (auto _ : state)
+    {
+        for (int i = 0; i < dataset.num_rows(); ++i)
+        {
+            auto pred = tree_predict(dataset.row_data[i], tree);
+            benchmark::DoNotOptimize(pred);
+        }
+    }
+}
+
+BENCHMARK(BM_TreePredict2);
 
 BENCHMARK_MAIN();

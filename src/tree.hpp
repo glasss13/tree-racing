@@ -1,5 +1,6 @@
 #pragma once
 
+#include "dataset.hpp"
 #include <algorithm>
 #include <fmt/core.h>
 #include <iostream>
@@ -225,4 +226,105 @@ inline Node build_tree(const Dataset &dataset, int min_samples_split = 2)
     auto [mode_label, _] = mode(dataset.back());
 
     return id3(dataset, 0, mode_label, min_samples_split);
+}
+
+inline std::unordered_map<int, Dataset2> split_dataset2(const Dataset2 &ds, int attribute)
+{
+    std::unordered_map<int, Dataset2> label_splits;
+    for (int row = 0; row < ds.num_rows(); ++row)
+    {
+        auto attr_label = ds.row_data[row][attribute];
+        auto it = label_splits.find(attr_label);
+        if (it == label_splits.end())
+        {
+            it = label_splits.insert({attr_label, Dataset2()}).first;
+        }
+
+        auto &split_ds = it->second;
+        split_ds.row_data.push_back(ds.row_data[row]);
+        split_ds.target_data.push_back(ds.target_data[row]);
+    }
+
+    return label_splits;
+}
+
+inline float split_entropy2(const Dataset2 &ds, int attribute)
+{
+    std::unordered_map<int, std::unordered_map<int, int>> split_counts;
+    std::unordered_map<int, int> split_totals;
+    for (int i = 0; i < ds.num_rows(); ++i)
+    {
+        ++split_counts[ds.row_data[i][attribute]][ds.target_data[i]];
+        ++split_totals[ds.row_data[i][attribute]];
+    }
+
+    float split_entropy = 0;
+
+    for (const auto &[split, counts] : split_counts)
+    {
+        auto tot = split_totals[split];
+        float entropy = 0;
+        for (auto [_, cnt] : counts)
+        {
+            float prop = static_cast<float>(cnt) / tot;
+            entropy += -prop * log(prop);
+        }
+
+        float prop = static_cast<float>(tot) / ds.num_rows();
+        split_entropy += prop * entropy;
+    }
+
+    return split_entropy;
+}
+
+inline Node id32(const Dataset2 &dataset, std::bitset<64> used_attributes, int parent_mode, int min_samples_split)
+{
+    if (dataset.num_rows() == 0)
+    {
+        return Node::make_leaf(parent_mode);
+    }
+
+    auto [mode_label, mode_count] = mode(dataset.target_data);
+
+    if (mode_count == dataset.num_rows() || used_attributes.size() == dataset.num_attributes() || dataset.num_rows() <= min_samples_split)
+    {
+        return Node::make_leaf(mode_label);
+    }
+
+    float best_split_entropy = std::numeric_limits<float>::max();
+    int best_split_attribute = 0;
+
+    for (int col = 0; col < dataset.num_attributes(); ++col)
+    {
+        if (used_attributes.test(col))
+            continue;
+
+        auto entropy = split_entropy2(dataset, col);
+        if (entropy < best_split_entropy)
+        {
+            best_split_entropy = entropy;
+            best_split_attribute = col;
+        }
+    }
+
+    used_attributes.set(best_split_attribute);
+
+    const auto label_splits = split_dataset2(dataset, best_split_attribute);
+
+    std::vector<Node> children;
+    for (const auto &[label, split_ds] : label_splits)
+    {
+        auto n = id32(split_ds, used_attributes, mode_label, min_samples_split);
+        n.set_inter_label(label);
+        children.push_back(std::move(n));
+    }
+
+    return Node::make_inter(best_split_attribute, std::move(children));
+}
+
+inline Node build_tree2(const Dataset2 &dataset, int min_samples_split = 2)
+{
+    auto [mode_label, _] = mode(dataset.target_data);
+
+    return id32(dataset, 0, mode_label, min_samples_split);
 }
