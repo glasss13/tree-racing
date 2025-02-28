@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(DEBUG_FLAGS -g -O0)
+set(DEBUG_FLAGS -g -O0 -fsanitize=undefined -fsanitize=address)
 set(RELEASE_FLAGS -O3 -DNDEBUG)
 
 find_package(GTest REQUIRED)
@@ -33,6 +33,8 @@ target_compile_options(tree_tests PRIVATE ${DEBUG_FLAGS})
 target_compile_options(tree_benchmark PRIVATE ${RELEASE_FLAGS})
 target_compile_options(tree_debug PRIVATE ${DEBUG_FLAGS})
 
+target_link_libraries(tree_tests PRIVATE -fsanitize=undefined -fsanitize=address)
+target_link_libraries(tree_debug PRIVATE -fsanitize=undefined -fsanitize=address)
 
 SET(TARGETS tree_exe tree_tests tree_benchmark tree_debug)
 
@@ -42,5 +44,7 @@ foreach (target ${TARGETS})
 endforeach()
 
 # Gtest
+target_link_libraries(tree_exe PRIVATE benchmark::benchmark_main)
+target_link_libraries(tree_debug PRIVATE benchmark::benchmark_main)
 target_link_libraries(tree_tests PRIVATE gtest::gtest)
 target_link_libraries(tree_benchmark PRIVATE benchmark::benchmark_main)

@@ -18,22 +18,12 @@ TEST(CarTest, AllInSample)
         target_data.push_back(class_);
     }
 
-    Dataset dataset(row_data, target_data);
+    Dataset dataset(std::make_shared<InnerDataset>(row_data, target_data));
 
     const auto tree = build_tree(dataset);
 
     for (int i = 0; i < dataset.num_rows(); ++i)
     {
-        EXPECT_EQ(tree_predict(dataset.row_data[i], tree), dataset.target_data[i]);
+        EXPECT_EQ(tree_predict(dataset.get_row(i), tree), dataset.get_target(i));
     }
-
-    // for (int i = 0; i < rows; ++i)
-    // {
-    //     std::vector<int> obs;
-    //     for (int attribute = 0; attribute < cols - 1; ++attribute)
-    //     {
-    //         obs.push_back(dataset[attribute][i]);
-    //     }
-    //     EXPECT_EQ(tree_predict(obs, tree), dataset.back()[i]);
-    // }
 }

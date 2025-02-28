@@ -1,16 +1,17 @@
 #pragma once
 
 #include "dataset.hpp"
+#include <__algorithm/ranges_fill_n.h>
 #include <algorithm>
 #include <fmt/core.h>
 #include <iostream>
-#include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <vector>
 
 inline std::pair<int, int> mode(const std::vector<int> &data)
 {
-    std::unordered_map<int, int> counts;
+    std::map<int, int> counts;
 
     int highest_count = 0;
     int ret = 0;
@@ -26,25 +27,6 @@ inline std::pair<int, int> mode(const std::vector<int> &data)
     }
 
     return {ret, highest_count};
-}
-
-inline float compute_entropy(const std::vector<int> &data)
-{
-    std::unordered_map<int, int> counts;
-
-    for (auto x : data)
-    {
-        ++counts[x];
-    }
-
-    float ret = 0;
-    for (auto [_, cnt] : counts)
-    {
-        float prop = static_cast<float>(cnt) / data.size();
-        ret += -prop * log(prop);
-    }
-
-    return ret;
 }
 
 class Node
@@ -114,63 +96,85 @@ inline int tree_predict(const std::vector<int> &obs, const Node &node)
     }
 }
 
-inline std::unordered_map<int, Dataset> split_dataset2(const Dataset &ds, int attribute)
+inline std::vector<Dataset> split_dataset(const Dataset &ds, int attribute)
 {
-    std::unordered_map<int, Dataset> label_splits;
-    for (int row = 0; row < ds.num_rows(); ++row)
-    {
-        auto attr_label = ds.row_data[row][attribute];
-        auto it = label_splits.find(attr_label);
-        if (it == label_splits.end())
-        {
-            it = label_splits.insert({attr_label, Dataset()}).first;
-        }
+    std::vector<Dataset> out;
 
-        auto &split_ds = it->second;
-        split_ds.row_data.push_back(ds.row_data[row]);
-        split_ds.target_data.push_back(ds.target_data[row]);
+    size_t idx = 0;
+
+    while (idx < ds.num_rows())
+    {
+        auto next_label_idx = ds.find_next_label(attribute, ds.get_col_sorted(attribute, idx));
+
+        out.push_back(ds.copy_from(idx, next_label_idx));
+        idx = next_label_idx;
     }
 
-    return label_splits;
+    return out;
 }
+
+// inline float split_entropy2(const Dataset &ds, int attribute) {
+//     split_
+//
+// }
 
 inline float split_entropy(const Dataset &ds, int attribute)
 {
-    std::unordered_map<int, std::unordered_map<int, int>> split_counts;
-    std::unordered_map<int, int> split_totals;
-    for (int i = 0; i < ds.num_rows(); ++i)
-    {
-        ++split_counts[ds.row_data[i][attribute]][ds.target_data[i]];
-        ++split_totals[ds.row_data[i][attribute]];
-    }
 
-    float split_entropy = 0;
+    float total_entropy = 0;
 
-    for (const auto &[split, counts] : split_counts)
+    std::map<int, int> cnts;
+    int split_start = 0;
+    int prev_label = ds.get_col_sorted(attribute, 0);
+
+    const auto compute_entropy = [&ds](int total, std::map<int, int> &counts)
     {
-        auto tot = split_totals[split];
         float entropy = 0;
         for (auto [_, cnt] : counts)
         {
-            float prop = static_cast<float>(cnt) / tot;
-            entropy += -prop * log(prop);
+            float prop = static_cast<float>(cnt) / total;
+            entropy -= prop * log(prop);
         }
+        float group_weight = static_cast<float>(total) / ds.num_rows();
+        return group_weight * entropy;
+    };
 
-        float prop = static_cast<float>(tot) / ds.num_rows();
-        split_entropy += prop * entropy;
+    int row = 0;
+    while (row < ds.num_rows())
+    {
+        const auto cur_label = ds.get_col_sorted(attribute, row);
+
+        if (cur_label == prev_label)
+        {
+            ++cnts[ds.get_target_sorted(row)];
+            ++row;
+        }
+        else
+        {
+            total_entropy += compute_entropy(row - split_start, cnts);
+
+            split_start = row;
+            prev_label = cur_label;
+            cnts.clear();
+        }
     }
 
-    return split_entropy;
+    if (row > split_start)
+    {
+        total_entropy += compute_entropy(row - split_start, cnts);
+    }
+
+    return total_entropy;
 }
 
-inline Node id32(const Dataset &dataset, std::bitset<64> used_attributes, int parent_mode, int min_samples_split)
+inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mode, int min_samples_split)
 {
     if (dataset.num_rows() == 0)
     {
         return Node::make_leaf(parent_mode);
     }
 
-    auto [mode_label, mode_count] = mode(dataset.target_data);
+    auto [mode_label, mode_count] = dataset.mode_label();
 
     if (mode_count == dataset.num_rows() || used_attributes.size() == dataset.num_attributes() || dataset.num_rows() <= min_samples_split)
     {
@@ -180,10 +184,18 @@ inline Node id32(const Dataset &dataset, std::bitset<64> used_attributes, int pa
     float best_split_entropy = std::numeric_limits<float>::max();
     int best_split_attribute = 0;
 
+    std::vector<int> idxs(dataset.num_rows());
+    for (int i = 0; i < idxs.size(); ++i)
+    {
+        idxs[i] = i;
+    }
+
     for (int col = 0; col < dataset.num_attributes(); ++col)
     {
         if (used_attributes.test(col))
             continue;
+
+        dataset.sort_by(col);
 
         auto entropy = split_entropy(dataset, col);
         if (entropy < best_split_entropy)
@@ -195,12 +207,15 @@ inline Node id32(const Dataset &dataset, std::bitset<64> used_attributes, int pa
 
     used_attributes.set(best_split_attribute);
 
-    const auto label_splits = split_dataset2(dataset, best_split_attribute);
+    dataset.sort_by(best_split_attribute);
+
+    auto label_splits = split_dataset(dataset, best_split_attribute);
 
     std::vector<Node> children;
-    for (const auto &[label, split_ds] : label_splits)
+    for (auto &split_ds : label_splits)
     {
-        auto n = id32(split_ds, used_attributes, mode_label, min_samples_split);
+        auto label = split_ds.get_col_sorted(best_split_attribute, 0);
+        auto n = id3(split_ds, used_attributes, mode_label, min_samples_split);
         n.set_inter_label(label);
         children.push_back(std::move(n));
     }
@@ -208,9 +223,9 @@ inline Node id32(const Dataset &dataset, std::bitset<64> used_attributes, int pa
     return Node::make_inter(best_split_attribute, std::move(children));
 }
 
-inline Node build_tree(const Dataset &dataset, int min_samples_split = 2)
+inline Node build_tree(Dataset dataset, int min_samples_split = 2)
 {
-    auto [mode_label, _] = mode(dataset.target_data);
+    auto [mode_label, _] = mode(dataset.get_target_data());
 
-    return id32(dataset, 0, mode_label, min_samples_split);
+    return id3(dataset, 0, mode_label, min_samples_split);
 }
