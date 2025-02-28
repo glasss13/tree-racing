@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -14,7 +15,7 @@ struct InnerDataset
     std::vector<int> m_count_scratch_buf;
 
     InnerDataset(std::vector<std::vector<int>> row_data, std::vector<int> target)
-        : m_row_data(std::move(row_data)), m_target_data(std::move(target)), m_count_scratch_buf(25)
+        : m_row_data(std::move(row_data)), m_target_data(std::move(target)), m_count_scratch_buf(32)
     {
         m_col_data.resize(m_row_data[0].size(), std::vector<int>(m_row_data.size()));
 
@@ -28,7 +29,7 @@ struct InnerDataset
     }
 
     InnerDataset(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target)
-        : m_row_data(std::move(row_data)), m_col_data(std::move(col_data)), m_target_data(std::move(target)), m_count_scratch_buf(25)
+        : m_row_data(std::move(row_data)), m_col_data(std::move(col_data)), m_target_data(std::move(target)), m_count_scratch_buf(32)
     {
     }
 };
@@ -38,13 +39,21 @@ class Dataset
     std::shared_ptr<InnerDataset> m_inner;
     std::vector<int> m_sorted_idxs;
 
+    // public:
+    //   static int cnt;
+    //
+    //   static int get_cnt() { return cnt; }
+
   public:
     explicit Dataset(std::shared_ptr<InnerDataset> inner) : m_inner(std::move(inner)), m_sorted_idxs(m_inner->m_row_data.size())
     {
+        // ++cnt;
         std::iota(m_sorted_idxs.begin(), m_sorted_idxs.end(), 0);
     }
 
     Dataset(std::shared_ptr<InnerDataset> inner, int nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
+
+    Dataset() = default;
 
     void sort_by(int col)
     {
@@ -61,8 +70,6 @@ class Dataset
     std::vector<int> &count_scratch_buf() { return m_inner->m_count_scratch_buf; }
 
     const std::vector<int> &get_row(int row) const { return m_inner->m_row_data[row]; }
-
-    const int get_col(int col, int entry) const { return m_inner->m_col_data[col][entry]; }
 
     const int get_target(int row) const { return m_inner->m_target_data[row]; }
 
@@ -81,7 +88,7 @@ class Dataset
     // TODO: clean
     std::pair<int, int> mode_label() const
     {
-        std::map<int, int> counts;
+        auto &counts = m_inner->m_count_scratch_buf;
 
         int highest_count = 0;
         int ret = 0;
@@ -96,6 +103,8 @@ class Dataset
                 ret = x;
             }
         }
+
+        std::memset(counts.data(), 0, counts.size());
 
         return {ret, highest_count};
     }

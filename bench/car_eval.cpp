@@ -19,15 +19,10 @@ static void BM_BuildTree(benchmark::State &state)
         target_data.push_back(class_);
     }
 
-    Dataset dataset(std::make_shared<InnerDataset>(row_data, target_data));
-
     for (auto _ : state)
     {
-        // for (int i = 0; i < 100; ++i)
-        // {
-        auto tree = build_tree(dataset);
+        auto tree = build_tree(row_data, target_data);
         benchmark::DoNotOptimize(tree);
-        // }
     }
 }
 
@@ -48,15 +43,13 @@ static void BM_TreePredict(benchmark::State &state)
         target_data.push_back(class_);
     }
 
-    Dataset dataset(std::make_shared<InnerDataset>(row_data, target_data));
-
-    auto tree = build_tree(dataset);
+    auto tree = build_tree(row_data, target_data);
 
     for (auto _ : state)
     {
-        for (int i = 0; i < dataset.num_rows(); ++i)
+        for (int i = 0; i < row_data.size(); ++i)
         {
-            auto pred = tree_predict(dataset.get_row(i), tree);
+            auto pred = tree_predict(row_data[i], tree);
             benchmark::DoNotOptimize(pred);
         }
     }

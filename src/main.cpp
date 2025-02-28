@@ -4,41 +4,43 @@
 
 #include <benchmark/benchmark.h>
 
+// int Dataset::cnt = 0;
+
 int main()
 {
-    constexpr int cols = 5;
+    constexpr int cols = 7;
 
-    io::CSVReader<cols> in("/Users/glass/source/tree-racing/datasets/tennis.csv");
+    io::CSVReader<cols> in("/Users/glass/source/tree-racing/datasets/car_eval.csv");
     int f1, f2, f3, f4, f5, f6, target;
 
     std::vector<std::vector<int>> row_data;
     std::vector<int> target_data;
 
-    while (in.read_row(f1, f2, f3, f4, target))
+    while (in.read_row(f1, f2, f3, f4, f5, f6, target))
     {
-        row_data.push_back({f1, f2, f3, f4});
+        row_data.push_back({f1, f2, f3, f4, f5, f6});
         target_data.push_back(target);
     }
 
-    Dataset dataset(std::make_shared<InnerDataset>(row_data, target_data));
-
-    for (int i = 0; i < 1000; ++i)
+    for (int i = 0; i < 100; ++i)
     {
-        auto tree = build_tree(dataset);
+        auto tree = build_tree(row_data, target_data);
         benchmark::DoNotOptimize(tree);
     }
 
-    // print_tree(tree);
+    // std::cout << "cnt: " << Dataset::get_cnt() << '\n';
+    //
+    // print_tree(build_tree(row_data, target_data));
     // int correct = 0;
-    // for (int i = 0; i < dataset.num_rows(); ++i)
+    // for (int i = 0; i < row_data.size(); ++i)
     // {
-    //     if (tree_predict(dataset.get_row(i), tree) == dataset.get_target(i))
+    //     if (tree_predict(row_data[i], build_tree(row_data, target_data)) == target_data[i])
     //     {
     //         ++correct;
     //     }
     // }
     //
     // std::cout << "accuracy: " << static_cast<float>(correct) / row_data.size() << '\n';
-
+    //
     return 0;
 }

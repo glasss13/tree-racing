@@ -1,33 +1,12 @@
 #pragma once
 
 #include "dataset.hpp"
-#include <__algorithm/ranges_fill_n.h>
 #include <algorithm>
+#include <bitset>
 #include <fmt/core.h>
 #include <iostream>
 #include <map>
-#include <unordered_set>
 #include <vector>
-
-inline std::pair<int, int> mode(const std::vector<int> &data)
-{
-    std::map<int, int> counts;
-
-    int highest_count = 0;
-    int ret = 0;
-
-    for (auto x : data)
-    {
-        ++counts[x];
-        if (counts[x] > highest_count)
-        {
-            highest_count = counts[x];
-            ret = x;
-        }
-    }
-
-    return {ret, highest_count};
-}
 
 class Node
 {
@@ -96,23 +75,6 @@ inline int tree_predict(const std::vector<int> &obs, const Node &node)
     }
 }
 
-// inline std::vector<Dataset> split_dataset(const Dataset &ds, int attribute)
-// {
-//     std::vector<Dataset> out;
-//
-//     size_t idx = 0;
-//
-//     while (idx < ds.num_rows())
-//     {
-//         auto next_label_idx = ds.find_next_label(attribute, ds.get_col_sorted(attribute, idx));
-//
-//         out.push_back(ds.copy_from(idx, next_label_idx));
-//         idx = next_label_idx;
-//     }
-//
-//     return out;
-// }
-
 inline float split_entropy(Dataset &ds, int attribute)
 {
     float total_entropy = 0;
@@ -127,14 +89,13 @@ inline float split_entropy(Dataset &ds, int attribute)
             float prop = static_cast<float>(cnt) / total;
             entropy -= prop * log(prop);
         }
-        float group_weight = static_cast<float>(total) / ds.num_rows();
-        return group_weight * entropy;
+        return entropy * total;
     };
 
     auto &cnts = ds.count_scratch_buf();
 
     int split_start = 0;
-    int prev_label = ds.get_col_sorted(attribute, 0);
+    auto prev_label = ds.get_row_sorted(0)[attribute];
     int row = 0;
     while (row < ds.num_rows())
     {
@@ -185,12 +146,7 @@ inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mod
 
     float best_split_entropy = std::numeric_limits<float>::max();
     int best_split_attribute = 0;
-
-    std::vector<int> idxs(dataset.num_rows());
-    for (int i = 0; i < idxs.size(); ++i)
-    {
-        idxs[i] = i;
-    }
+    Dataset best_ds;
 
     for (int col = 0; col < dataset.num_attributes(); ++col)
     {
@@ -199,22 +155,21 @@ inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mod
 
         dataset.sort_by(col);
 
-        auto entropy = split_entropy(dataset, col);
+        const auto entropy = split_entropy(dataset, col);
         if (entropy < best_split_entropy)
         {
             best_split_entropy = entropy;
             best_split_attribute = col;
+            best_ds = dataset;
         }
     }
 
     used_attributes.set(best_split_attribute);
 
-    dataset.sort_by(best_split_attribute);
-
     std::vector<Node> children;
-    for (const auto split_ds : dataset.split_iterator(best_split_attribute))
+    for (const auto split_ds : best_ds.split_iterator(best_split_attribute))
     {
-        auto label = split_ds.get_col_sorted(best_split_attribute, 0);
+        auto label = split_ds.get_row_sorted(0)[best_split_attribute];
         auto n = id3(split_ds, used_attributes, mode_label, min_samples_split);
         n.set_inter_label(label);
         children.push_back(std::move(n));
@@ -223,9 +178,16 @@ inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mod
     return Node::make_inter(best_split_attribute, std::move(children));
 }
 
-inline Node build_tree(Dataset dataset, int min_samples_split = 2)
+inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<int> target_data, int min_samples_split = 2)
 {
-    auto [mode_label, _] = mode(dataset.get_target_data());
+    Dataset ds(std::make_shared<InnerDataset>(std::move(row_data), std::move(target_data)));
 
-    return id3(dataset, 0, mode_label, min_samples_split);
+    return id3(ds, 0, 0, min_samples_split);
+}
+
+inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target_data, int min_samples_split = 2)
+{
+    Dataset ds(std::make_shared<InnerDataset>(std::move(row_data), std::move(col_data), std::move(target_data)));
+
+    return id3(ds, 0, 0, min_samples_split);
 }
