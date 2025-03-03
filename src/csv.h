@@ -1,3 +1,4 @@
+#pragma GCC system_header
 
 // Copyright: (2012-2015) Ben Strasser <code@ben-strasser.net>
 // License: BSD-3

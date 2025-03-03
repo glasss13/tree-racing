@@ -6,7 +6,41 @@
 #include <fmt/core.h>
 #include <iostream>
 #include <map>
+#include <random>
 #include <vector>
+
+std::pair<std::pair<std::vector<std::vector<int>>, std::vector<int>>, std::pair<std::vector<std::vector<int>>, std::vector<int>>> inline train_test_split(
+    const std::vector<std::vector<int>> &row_data, const std::vector<int> &target_data, double train_ratio)
+{
+    size_t data_size = row_data.size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(indices.begin(), indices.end(), gen);
+
+    size_t train_size = static_cast<size_t>(train_ratio * data_size);
+
+    std::vector<std::vector<int>> train_data, test_data;
+    std::vector<int> train_target, test_target;
+
+    for (size_t i = 0; i < indices.size(); ++i)
+    {
+        if (i < train_size)
+        {
+            train_data.push_back(row_data[indices[i]]);
+            train_target.push_back(target_data[indices[i]]);
+        }
+        else
+        {
+            test_data.push_back(row_data[indices[i]]);
+            test_target.push_back(target_data[indices[i]]);
+        }
+    }
+
+    return {{train_data, train_target}, {test_data, test_target}};
+}
 
 class Node
 {

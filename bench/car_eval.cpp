@@ -19,9 +19,12 @@ static void BM_BuildTree(benchmark::State &state)
         target_data.push_back(class_);
     }
 
+    auto [train_set, _] = train_test_split(row_data, target_data, 0.8);
+    auto &[train_data, train_target] = train_set;
+
     for (auto _ : state)
     {
-        auto tree = build_tree(row_data, target_data);
+        auto tree = build_tree(train_data, train_target);
         benchmark::DoNotOptimize(tree);
     }
 }
@@ -43,13 +46,17 @@ static void BM_TreePredict(benchmark::State &state)
         target_data.push_back(class_);
     }
 
-    auto tree = build_tree(row_data, target_data);
+    auto [train_set, test_set] = train_test_split(row_data, target_data, 0.8);
+    auto &[train_data, train_target] = train_set;
+    auto &[test_data, test_target] = test_set;
+
+    auto tree = build_tree(train_data, train_target);
 
     for (auto _ : state)
     {
-        for (int i = 0; i < row_data.size(); ++i)
+        for (const auto &sample : test_data)
         {
-            auto pred = tree_predict(row_data[i], tree);
+            auto pred = tree_predict(sample, tree);
             benchmark::DoNotOptimize(pred);
         }
     }

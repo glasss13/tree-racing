@@ -4,8 +4,6 @@
 
 #include <benchmark/benchmark.h>
 
-// int Dataset::cnt = 0;
-
 int main()
 {
     constexpr int cols = 7;
@@ -22,25 +20,25 @@ int main()
         target_data.push_back(target);
     }
 
-    for (int i = 0; i < 100; ++i)
+    auto [train_set, test_set] = train_test_split(row_data, target_data, 0.8);
+    auto &[train_data, train_target] = train_set;
+    auto &[test_data, test_target] = test_set;
+
+    // for (int i = 0; i < 100; ++i)
+    // {
+    const auto tree = build_tree(train_data, train_target);
+    //     benchmark::DoNotOptimize(tree);
+    // }
+
+    int correct = 0;
+    for (size_t i = 0; i < test_data.size(); ++i)
     {
-        auto tree = build_tree(row_data, target_data);
-        benchmark::DoNotOptimize(tree);
+        if (tree_predict(test_data[i], tree) == test_target[i])
+        {
+            ++correct;
+        }
     }
 
-    // std::cout << "cnt: " << Dataset::get_cnt() << '\n';
-    //
-    // print_tree(build_tree(row_data, target_data));
-    // int correct = 0;
-    // for (int i = 0; i < row_data.size(); ++i)
-    // {
-    //     if (tree_predict(row_data[i], build_tree(row_data, target_data)) == target_data[i])
-    //     {
-    //         ++correct;
-    //     }
-    // }
-    //
-    // std::cout << "accuracy: " << static_cast<float>(correct) / row_data.size() << '\n';
-    //
+    std::cout << "accuracy: " << static_cast<float>(correct) / test_data.size() << '\n';
     return 0;
 }

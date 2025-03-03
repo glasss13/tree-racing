@@ -19,9 +19,9 @@ struct InnerDataset
     {
         m_col_data.resize(m_row_data[0].size(), std::vector<int>(m_row_data.size()));
 
-        for (int i = 0; i < m_row_data.size(); ++i)
+        for (size_t i = 0; i < m_row_data.size(); ++i)
         {
-            for (int j = 0; j < m_row_data[0].size(); ++j)
+            for (size_t j = 0; j < m_row_data[0].size(); ++j)
             {
                 m_col_data[j][i] = m_row_data[i][j];
             }
@@ -71,13 +71,13 @@ class Dataset
 
     const std::vector<int> &get_row(int row) const { return m_inner->m_row_data[row]; }
 
-    const int get_target(int row) const { return m_inner->m_target_data[row]; }
+    int get_target(int row) const { return m_inner->m_target_data[row]; }
 
     const std::vector<int> &get_row_sorted(int row) const { return m_inner->m_row_data[m_sorted_idxs[row]]; }
 
-    const int get_col_sorted(int col, int entry) const { return m_inner->m_col_data[col][m_sorted_idxs[entry]]; }
+    int get_col_sorted(int col, int entry) const { return m_inner->m_col_data[col][m_sorted_idxs[entry]]; }
 
-    const int get_target_sorted(int row) const { return m_inner->m_target_data[m_sorted_idxs[row]]; }
+    int get_target_sorted(int row) const { return m_inner->m_target_data[m_sorted_idxs[row]]; }
 
     size_t num_rows() const { return m_sorted_idxs.size(); }
 
