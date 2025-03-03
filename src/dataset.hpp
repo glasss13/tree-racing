@@ -45,7 +45,6 @@ struct InnerDataset
 class Dataset
 {
     InnerDataset *m_inner;
-    // std::shared_ptr<InnerDataset> m_inner;
     std::vector<int> m_sorted_idxs;
 
   public:
@@ -109,7 +108,6 @@ class Dataset
 
     const std::vector<int> &get_target_data() const { return m_inner->m_target_data; }
 
-    // TODO: clean
     std::pair<int, int> mode_label() const
     {
         auto &counts = m_inner->m_count_scratch_buf;
