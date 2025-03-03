@@ -44,16 +44,17 @@ struct InnerDataset
 
 class Dataset
 {
-    std::shared_ptr<InnerDataset> m_inner;
+    InnerDataset *m_inner;
+    // std::shared_ptr<InnerDataset> m_inner;
     std::vector<int> m_sorted_idxs;
 
   public:
-    explicit Dataset(std::shared_ptr<InnerDataset> inner) : m_inner(std::move(inner)), m_sorted_idxs(m_inner->m_row_data.size())
+    explicit Dataset(InnerDataset *inner) : m_inner(std::move(inner)), m_sorted_idxs(m_inner->m_row_data.size())
     {
         std::iota(m_sorted_idxs.begin(), m_sorted_idxs.end(), 0);
     }
 
-    Dataset(std::shared_ptr<InnerDataset> inner, size_t nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
+    Dataset(InnerDataset *inner, size_t nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
 
     Dataset() = default;
 

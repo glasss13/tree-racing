@@ -98,8 +98,8 @@ inline int tree_predict(const std::vector<int> &obs, const Node &node)
     }
     else
     {
-        int split_val = obs[node.split_attribute()];
-        auto child = std::ranges::find_if(node.children(), [&](const Node &n) { return n.inter_label() == split_val; });
+        const int split_val = obs[node.split_attribute()];
+        auto child = std::ranges::find_if(node.children(), [split_val](const Node &n) { return n.inter_label() == split_val; });
         if (child == node.children().end()) [[unlikely]]
         {
             return tree_predict(obs, node.children().front());
@@ -210,7 +210,7 @@ inline Node id3(Dataset dataset, std::bitset<64> used_attributes, int parent_mod
 
 inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<int> target_data, int min_samples_split = 2)
 {
-    Dataset ds(std::make_shared<InnerDataset>(std::move(row_data), std::move(target_data)));
+    Dataset ds(new InnerDataset(std::move(row_data), std::move(target_data)));
 
     return id3(ds, 0, 0, min_samples_split);
 }
