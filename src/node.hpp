@@ -29,30 +29,3 @@ class Node
 
     void set_inter_label(int l) { m_inter_label = l; }
 };
-
-struct NodePool
-{
-    Node *buffer;
-    std::size_t capacity;
-    std::size_t next = 0;
-
-    NodePool(std::size_t cap) : capacity(cap) { buffer = static_cast<Node *>(::operator new(capacity * sizeof(Node))); }
-
-    ~NodePool() { ::operator delete(buffer); }
-
-    NodeHandle make_leaf(int label)
-    {
-        new (&buffer[next]) Node(label);
-        return next++;
-    }
-
-    NodeHandle make_inter(int attribute, std::vector<NodeHandle> children)
-    {
-        new (&buffer[next]) Node(attribute, std::move(children), -1);
-        return next++;
-    }
-
-    Node &get(NodeHandle handle) { return buffer[handle]; }
-
-    const Node &get(NodeHandle handle) const { return buffer[handle]; }
-};
