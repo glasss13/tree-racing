@@ -7,7 +7,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(DEBUG_FLAGS -g -O0 -fsanitize=undefined -fsanitize=address)
+set(DEBUG_FLAGS
+    -g
+    -O0
+    -fsanitize=undefined
+    -fsanitize=address
+    -Wall
+    # -Werror
+    -Wextra
+    -Wpedantic
+    -Wconversion
+    -Wsign-conversion
+    -Wdouble-promotion
+    -Wformat=2                   # Enable format warnings
+    -Wnull-dereference           # Warn if null pointer dereference is detected
+    -Woverloaded-virtual         # Warn if a base class function is hidden
+    -Wnon-virtual-dtor           # Warn if a base class has a non-virtual destructor
+    -Wold-style-cast             # Warn if using C-style casts
+    -Winit-self                  # Warn on self-initialization
+    -Wstrict-aliasing=2          # Strong aliasing warnings
+    -Wundef
+)
+
 set(RELEASE_FLAGS -O3 -DNDEBUG)
 
 find_package(GTest REQUIRED)

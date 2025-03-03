@@ -51,20 +51,44 @@ class Dataset
         std::iota(m_sorted_idxs.begin(), m_sorted_idxs.end(), 0);
     }
 
-    Dataset(std::shared_ptr<InnerDataset> inner, int nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
+    Dataset(std::shared_ptr<InnerDataset> inner, size_t nrows) : m_inner(inner), m_sorted_idxs(nrows) {}
 
     Dataset() = default;
 
-    void sort_by(int col)
+    void sort_by(size_t col)
     {
         const auto &col_data = m_inner->m_col_data[col];
-        std::ranges::sort(m_sorted_idxs, [&](int l, int r) { return col_data[l] < col_data[r]; });
-    }
+        size_t n = m_sorted_idxs.size();
 
-    void sort_by_target()
-    {
-        const auto &target_data = m_inner->m_target_data;
-        std::ranges::sort(m_sorted_idxs, [&](int l, int r) { return target_data[l] < target_data[r]; });
+        int max_val = 0;
+        for (int idx : m_sorted_idxs)
+        {
+            max_val = std::max(max_val, col_data[idx]);
+        }
+
+        std::vector<int> count(max_val + 1, 0);
+
+        for (int idx : m_sorted_idxs)
+        {
+            count[col_data[idx]]++;
+        }
+
+        for (int i = 1; i <= max_val; i++)
+        {
+            count[i] += count[i - 1];
+        }
+
+        std::vector<int> output(n);
+        for (int i = n - 1; i >= 0; i--)
+        {
+            int idx = m_sorted_idxs[i];
+            int key = col_data[idx];
+            int pos = count[key] - 1;
+            output[pos] = idx;
+            count[key]--;
+        }
+
+        m_sorted_idxs = std::move(output);
     }
 
     std::vector<int> &count_scratch_buf() { return m_inner->m_count_scratch_buf; }

@@ -113,7 +113,7 @@ inline float split_entropy(Dataset &ds, int attribute)
 {
     float total_entropy = 0;
 
-    const auto compute_entropy = [&ds](int total, const std::vector<int> &counts)
+    const auto compute_entropy = [](int total, const std::vector<int> &counts)
     {
         float entropy = 0;
         for (auto cnt : counts)
