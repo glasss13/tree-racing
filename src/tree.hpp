@@ -138,10 +138,6 @@ inline float split_entropy(Dataset &ds, int attribute)
         if (cur_label == prev_label)
         {
             const auto label = ds.get_target_sorted(row);
-            if (label >= cnts.size()) [[unlikely]]
-            {
-                cnts.resize(std::max(cnts.size() * 2, static_cast<size_t>(label + 1)), 0);
-            }
             ++cnts[label];
             ++row;
         }
@@ -151,14 +147,14 @@ inline float split_entropy(Dataset &ds, int attribute)
 
             split_start = row;
             prev_label = cur_label;
-            std::memset(cnts.data(), 0, cnts.size());
+            std::memset(cnts.data(), 0, cnts.size() * sizeof(int));
         }
     }
 
     if (row > split_start)
     {
         total_entropy += compute_entropy(row - split_start, cnts);
-        std::memset(cnts.data(), 0, cnts.size());
+        std::memset(cnts.data(), 0, cnts.size() * sizeof(int));
     }
 
     return total_entropy;
@@ -219,9 +215,10 @@ inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<int> 
     return id3(ds, 0, 0, min_samples_split);
 }
 
-inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target_data, int min_samples_split = 2)
-{
-    Dataset ds(std::make_shared<InnerDataset>(std::move(row_data), std::move(col_data), std::move(target_data)));
-
-    return id3(ds, 0, 0, min_samples_split);
-}
+// inline Node build_tree(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target_data, int min_samples_split =
+// 2)
+// {
+//     Dataset ds(std::make_shared<InnerDataset>(std::move(row_data), std::move(col_data), std::move(target_data)));
+//
+//     return id3(ds, 0, 0, min_samples_split);
+// }

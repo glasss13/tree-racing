@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <fmt/core.h>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -14,11 +15,23 @@ struct InnerDataset
     std::vector<int> m_target_data;
     std::vector<int> m_count_scratch_buf;
 
-    InnerDataset(std::vector<std::vector<int>> row_data, std::vector<int> target)
-        : m_row_data(std::move(row_data)), m_target_data(std::move(target)), m_count_scratch_buf(32)
+    InnerDataset(std::vector<std::vector<int>> row_data, std::vector<int> target) : m_row_data(std::move(row_data)), m_target_data(std::move(target))
     {
         m_col_data.resize(m_row_data[0].size(), std::vector<int>(m_row_data.size()));
 
+        int mx = 0;
+        for (auto t : m_target_data)
+        {
+            mx = std::max(mx, t);
+        }
+        for (const auto &r : m_row_data)
+        {
+            for (auto v : r)
+            {
+                mx = std::max(mx, v);
+            }
+        }
+        m_count_scratch_buf.resize(mx + 1, 0);
         for (size_t i = 0; i < m_row_data.size(); ++i)
         {
             for (size_t j = 0; j < m_row_data[0].size(); ++j)
@@ -27,11 +40,6 @@ struct InnerDataset
             }
         }
     }
-
-    InnerDataset(std::vector<std::vector<int>> row_data, std::vector<std::vector<int>> col_data, std::vector<int> target)
-        : m_row_data(std::move(row_data)), m_col_data(std::move(col_data)), m_target_data(std::move(target)), m_count_scratch_buf(32)
-    {
-    }
 };
 
 class Dataset
@@ -39,15 +47,9 @@ class Dataset
     std::shared_ptr<InnerDataset> m_inner;
     std::vector<int> m_sorted_idxs;
 
-    // public:
-    //   static int cnt;
-    //
-    //   static int get_cnt() { return cnt; }
-
   public:
     explicit Dataset(std::shared_ptr<InnerDataset> inner) : m_inner(std::move(inner)), m_sorted_idxs(m_inner->m_row_data.size())
     {
-        // ++cnt;
         std::iota(m_sorted_idxs.begin(), m_sorted_idxs.end(), 0);
     }
 
@@ -59,21 +61,17 @@ class Dataset
     {
         const auto &col_data = m_inner->m_col_data[col];
         size_t n = m_sorted_idxs.size();
+        auto &count = m_inner->m_count_scratch_buf;
 
         int max_val = 0;
         for (int idx : m_sorted_idxs)
         {
-            max_val = std::max(max_val, col_data[idx]);
+            int key = col_data[idx];
+            ++count[key];
+            max_val = std::max(max_val, key);
         }
 
-        std::vector<int> count(max_val + 1, 0);
-
-        for (int idx : m_sorted_idxs)
-        {
-            count[col_data[idx]]++;
-        }
-
-        for (int i = 1; i <= max_val; i++)
+        for (size_t i = 1; i <= max_val; i++)
         {
             count[i] += count[i - 1];
         }
@@ -89,6 +87,7 @@ class Dataset
         }
 
         m_sorted_idxs = std::move(output);
+        std::memset(count.data(), 0, count.size() * sizeof(int));
     }
 
     std::vector<int> &count_scratch_buf() { return m_inner->m_count_scratch_buf; }
@@ -119,7 +118,8 @@ class Dataset
 
         for (auto idx : m_sorted_idxs)
         {
-            auto x = m_inner->m_target_data[idx];
+            const auto x = m_inner->m_target_data[idx];
+
             ++counts[x];
             if (counts[x] > highest_count)
             {
@@ -128,7 +128,7 @@ class Dataset
             }
         }
 
-        std::memset(counts.data(), 0, counts.size());
+        std::memset(counts.data(), 0, counts.size() * sizeof(int));
 
         return {ret, highest_count};
     }
