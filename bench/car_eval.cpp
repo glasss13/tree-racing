@@ -2,8 +2,8 @@
 #include "tree.hpp"
 #include <benchmark/benchmark.h>
 
-constexpr const char *file = "/Users/glass/source/tree-racing/datasets/car_eval.csv";
-constexpr const char *file2 = "/Users/glass/source/tree-racing/datasets/tennis.csv";
+constexpr const char *file = "../datasets/car_eval.csv";
+constexpr const char *file2 = "../datasets/tennis.csv";
 
 static void BM_BuildTree(benchmark::State &state)
 {
