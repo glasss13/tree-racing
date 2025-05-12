@@ -4,8 +4,8 @@
 
 class Node
 {
-    int m_label_or_attr;
     std::vector<Node> m_children;
+    int m_label_or_attr;
     int m_inter_label;
 
     Node(int label) : m_label_or_attr(label) {}
